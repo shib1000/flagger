@@ -29,6 +29,7 @@ import (
 	gloo "github.com/fluxcd/flagger/pkg/client/informers/externalversions/gloo"
 	internalinterfaces "github.com/fluxcd/flagger/pkg/client/informers/externalversions/internalinterfaces"
 	istio "github.com/fluxcd/flagger/pkg/client/informers/externalversions/istio"
+	kapcom "github.com/fluxcd/flagger/pkg/client/informers/externalversions/kapcom"
 	projectcontour "github.com/fluxcd/flagger/pkg/client/informers/externalversions/projectcontour"
 	smi "github.com/fluxcd/flagger/pkg/client/informers/externalversions/smi"
 	traefik "github.com/fluxcd/flagger/pkg/client/informers/externalversions/traefik"
@@ -182,6 +183,7 @@ type SharedInformerFactory interface {
 	Flagger() flagger.Interface
 	Gateway() gloo.Interface
 	Networking() istio.Interface
+	Kapcom() kapcom.Interface
 	Projectcontour() projectcontour.Interface
 	Split() smi.Interface
 	Traefik() traefik.Interface
@@ -201,6 +203,10 @@ func (f *sharedInformerFactory) Gateway() gloo.Interface {
 
 func (f *sharedInformerFactory) Networking() istio.Interface {
 	return istio.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Kapcom() kapcom.Interface {
+	return kapcom.New(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Projectcontour() projectcontour.Interface {

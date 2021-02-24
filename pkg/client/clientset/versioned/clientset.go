@@ -26,6 +26,7 @@ import (
 	flaggerv1beta1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/flagger/v1beta1"
 	gatewayv1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/gloo/v1"
 	networkingv1alpha3 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/istio/v1alpha3"
+	kapcomv1beta1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/kapcom/v1beta1"
 	projectcontourv1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/projectcontour/v1"
 	splitv1alpha1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/smi/v1alpha1"
 	splitv1alpha2 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/smi/v1alpha2"
@@ -42,6 +43,7 @@ type Interface interface {
 	FlaggerV1beta1() flaggerv1beta1.FlaggerV1beta1Interface
 	GatewayV1() gatewayv1.GatewayV1Interface
 	NetworkingV1alpha3() networkingv1alpha3.NetworkingV1alpha3Interface
+	KapcomV1beta1() kapcomv1beta1.KapcomV1beta1Interface
 	ProjectcontourV1() projectcontourv1.ProjectcontourV1Interface
 	SplitV1alpha1() splitv1alpha1.SplitV1alpha1Interface
 	SplitV1alpha2() splitv1alpha2.SplitV1alpha2Interface
@@ -57,6 +59,7 @@ type Clientset struct {
 	flaggerV1beta1     *flaggerv1beta1.FlaggerV1beta1Client
 	gatewayV1          *gatewayv1.GatewayV1Client
 	networkingV1alpha3 *networkingv1alpha3.NetworkingV1alpha3Client
+	kapcomV1beta1      *kapcomv1beta1.KapcomV1beta1Client
 	projectcontourV1   *projectcontourv1.ProjectcontourV1Client
 	splitV1alpha1      *splitv1alpha1.SplitV1alpha1Client
 	splitV1alpha2      *splitv1alpha2.SplitV1alpha2Client
@@ -86,6 +89,11 @@ func (c *Clientset) GatewayV1() gatewayv1.GatewayV1Interface {
 // NetworkingV1alpha3 retrieves the NetworkingV1alpha3Client
 func (c *Clientset) NetworkingV1alpha3() networkingv1alpha3.NetworkingV1alpha3Interface {
 	return c.networkingV1alpha3
+}
+
+// KapcomV1beta1 retrieves the KapcomV1beta1Client
+func (c *Clientset) KapcomV1beta1() kapcomv1beta1.KapcomV1beta1Interface {
+	return c.kapcomV1beta1
 }
 
 // ProjectcontourV1 retrieves the ProjectcontourV1Client
@@ -149,6 +157,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.kapcomV1beta1, err = kapcomv1beta1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 	cs.projectcontourV1, err = projectcontourv1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -182,6 +194,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 	cs.flaggerV1beta1 = flaggerv1beta1.NewForConfigOrDie(c)
 	cs.gatewayV1 = gatewayv1.NewForConfigOrDie(c)
 	cs.networkingV1alpha3 = networkingv1alpha3.NewForConfigOrDie(c)
+	cs.kapcomV1beta1 = kapcomv1beta1.NewForConfigOrDie(c)
 	cs.projectcontourV1 = projectcontourv1.NewForConfigOrDie(c)
 	cs.splitV1alpha1 = splitv1alpha1.NewForConfigOrDie(c)
 	cs.splitV1alpha2 = splitv1alpha2.NewForConfigOrDie(c)
@@ -199,6 +212,7 @@ func New(c rest.Interface) *Clientset {
 	cs.flaggerV1beta1 = flaggerv1beta1.New(c)
 	cs.gatewayV1 = gatewayv1.New(c)
 	cs.networkingV1alpha3 = networkingv1alpha3.New(c)
+	cs.kapcomV1beta1 = kapcomv1beta1.New(c)
 	cs.projectcontourV1 = projectcontourv1.New(c)
 	cs.splitV1alpha1 = splitv1alpha1.New(c)
 	cs.splitV1alpha2 = splitv1alpha2.New(c)

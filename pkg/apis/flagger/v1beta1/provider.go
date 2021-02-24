@@ -11,4 +11,5 @@ const (
 	KubernetesProvider string = "kubernetes"
 	SkipperProvider    string = "skipper"
 	TraefikProvider    string = "traefik"
+	KapcomProvider     string = "kapcom"
 )

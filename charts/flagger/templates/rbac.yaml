@@ -184,6 +184,19 @@ rules:
       - patch
       - delete
   - apiGroups:
+      - contour.heptio.com
+    resources:
+      - ingressroutes
+      - ingressroutes/finalizers
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
     - traefik.containo.us
     resources:
     - traefikservices
