@@ -3,10 +3,10 @@ package router
 import (
 	"context"
 	"fmt"
-
+	kapcomv1beta1 "github.com/fluxcd/flagger/pkg/apis/kapcom/v1beta1"
 	flaggerv1 "github.com/fluxcd/flagger/pkg/apis/flagger/v1beta1"
 	"github.com/fluxcd/flagger/pkg/apis/kapcom/v1beta1"
-	contourv1 "github.com/fluxcd/flagger/pkg/apis/projectcontour/v1"
+
 	clientset "github.com/fluxcd/flagger/pkg/client/clientset/versioned"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -136,7 +136,7 @@ func (kr *KapcomRouter) Reconcile(canary *flaggerv1.Canary) error {
 		if diff := cmp.Diff(
 			newSpec,
 			proxy.Spec,
-			cmpopts.IgnoreFields(contourv1.Service{}, "Weight"),
+			cmpopts.IgnoreFields(kapcomv1beta1.Service{}, "Weight"),
 		); diff != "" {
 			clone := proxy.DeepCopy()
 			clone.Spec = newSpec
@@ -306,10 +306,4 @@ func (kr *KapcomRouter) makeRetryPolicy(canary *flaggerv1.Canary) *v1beta1.Retry
 	return nil
 }
 
-func (kr *KapcomRouter) makeLinkerdHeaderValue(canary *flaggerv1.Canary, serviceName string) contourv1.HeaderValue {
-	return contourv1.HeaderValue{
-		Name:  "l5d-dst-override",
-		Value: fmt.Sprintf("%s.%s.svc.cluster.local:%v", serviceName, canary.Namespace, canary.Spec.Service.Port),
-	}
 
-}
