@@ -2,10 +2,13 @@ package router
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	kapcomv1beta1 "github.com/fluxcd/flagger/pkg/apis/kapcom/v1beta1"
 	flaggerv1 "github.com/fluxcd/flagger/pkg/apis/flagger/v1beta1"
 	"github.com/fluxcd/flagger/pkg/apis/kapcom/v1beta1"
+	kapcomv1beta1 "github.com/fluxcd/flagger/pkg/apis/kapcom/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
+	"strings"
 
 	clientset "github.com/fluxcd/flagger/pkg/client/clientset/versioned"
 	"github.com/google/go-cmp/cmp"
@@ -24,6 +27,9 @@ type KapcomRouter struct {
 	logger        *zap.SugaredLogger
 	ingressClass  string
 }
+type updateSpec struct {
+	Spec kapcomv1beta1.IngressRouteSpec `json:"spec"`
+}
 
 func (kr *KapcomRouter) Reconcile(canary *flaggerv1.Canary) error {
 	const annotation = "kubernetes.io/ingress.class"
@@ -33,19 +39,22 @@ func (kr *KapcomRouter) Reconcile(canary *flaggerv1.Canary) error {
 	newSpec := v1beta1.IngressRouteSpec{
 		Routes: []v1beta1.Route{
 			{
-				Match:         kr.makeExactPath(canary),
-				TimeoutPolicy: kr.makeTimeoutPolicy(canary),
-				RetryPolicy:   kr.makeRetryPolicy(canary),
+				PermitInsecure: true,
+				Match:          kr.makeExactPath(canary),
+				TimeoutPolicy:  kr.makeTimeoutPolicy(canary),
+				RetryPolicy:    kr.makeRetryPolicy(canary),
 				Services: []v1beta1.Service{
 					{
 						Name:   primaryName,
 						Port:   int(canary.Spec.Service.Port),
 						Weight: 100,
+						//HealthCheck: kr.makeHealthCheck(canary),
 					},
 					{
 						Name:   canaryName,
 						Port:   int(canary.Spec.Service.Port),
 						Weight: 0,
+						//HealthCheck: kr.makeHealthCheck(canary),
 					},
 				},
 			},
@@ -56,36 +65,42 @@ func (kr *KapcomRouter) Reconcile(canary *flaggerv1.Canary) error {
 		newSpec = v1beta1.IngressRouteSpec{
 			Routes: []v1beta1.Route{
 				{
-					Match:         kr.makeExactPath(canary),
-					TimeoutPolicy: kr.makeTimeoutPolicy(canary),
-					RetryPolicy:   kr.makeRetryPolicy(canary),
+					PermitInsecure: true,
+					Match:          kr.makeExactPath(canary),
+					TimeoutPolicy:  kr.makeTimeoutPolicy(canary),
+					RetryPolicy:    kr.makeRetryPolicy(canary),
 					Services: []v1beta1.Service{
 						{
 							Name:   primaryName,
 							Port:   int(canary.Spec.Service.Port),
 							Weight: 100,
+							//HealthCheck: kr.makeHealthCheck(canary),
 						},
 						{
 							Name:   canaryName,
 							Port:   int(canary.Spec.Service.Port),
 							Weight: 0,
+							//HealthCheck: kr.makeHealthCheck(canary),
 						},
 					},
 				},
 				{
-					Match:         kr.makeExactPath(canary),
-					TimeoutPolicy: kr.makeTimeoutPolicy(canary),
-					RetryPolicy:   kr.makeRetryPolicy(canary),
+					PermitInsecure: true,
+					Match:          kr.makeExactPath(canary),
+					TimeoutPolicy:  kr.makeTimeoutPolicy(canary),
+					RetryPolicy:    kr.makeRetryPolicy(canary),
 					Services: []v1beta1.Service{
 						{
 							Name:   primaryName,
 							Port:   int(canary.Spec.Service.Port),
 							Weight: 100,
+							//HealthCheck: kr.makeHealthCheck(canary),
 						},
 						{
 							Name:   canaryName,
 							Port:   int(canary.Spec.Service.Port),
 							Weight: 0,
+							//HealthCheck: kr.makeHealthCheck(canary),
 						},
 					},
 				},
@@ -117,9 +132,10 @@ func (kr *KapcomRouter) Reconcile(canary *flaggerv1.Canary) error {
 
 		if kr.ingressClass != "" {
 			proxy.Annotations = map[string]string{
-				annotation: kr.ingressClass,
+				annotation: "contour-corp",
 			}
 		}
+		//proxy.Spec.Routes[0].PermitInsecure=true
 		_, err = kr.kapcomClient.KapcomV1beta1().IngressRoutes(canary.Namespace).Create(context.TODO(), proxy, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("IngressRoute %s.%s create error: %w", apexName, canary.Namespace, err)
@@ -140,7 +156,6 @@ func (kr *KapcomRouter) Reconcile(canary *flaggerv1.Canary) error {
 		); diff != "" {
 			clone := proxy.DeepCopy()
 			clone.Spec = newSpec
-
 			_, err = kr.kapcomClient.KapcomV1beta1().IngressRoutes(canary.Namespace).Update(context.TODO(), clone, metav1.UpdateOptions{})
 			if err != nil {
 				return fmt.Errorf("IngressRoute %s.%s update error: %w", apexName, canary.Namespace, err)
@@ -148,6 +163,7 @@ func (kr *KapcomRouter) Reconcile(canary *flaggerv1.Canary) error {
 			kr.logger.With("canary", fmt.Sprintf("%s.%s", canary.Name, canary.Namespace)).
 				Infof("IngressRoute %s.%s updated", proxy.GetName(), canary.Namespace)
 		}
+
 	}
 
 	return nil
@@ -201,61 +217,72 @@ func (kr *KapcomRouter) SetRoutes(
 		return fmt.Errorf("Ingressroute %s.%s query error: %w", apexName, canary.Namespace, err)
 	}
 
+	newRoutes := []v1beta1.Route{
+		{
+			PermitInsecure: true,
+			Match:          kr.makeExactPath(canary),
+			TimeoutPolicy:  kr.makeTimeoutPolicy(canary),
+			RetryPolicy:    kr.makeRetryPolicy(canary),
+			Services: []v1beta1.Service{
+				{
+					Name:   primaryName,
+					Port:   int(canary.Spec.Service.Port),
+					Weight: primaryWeight,
+					//HealthCheck: kr.makeHealthCheck(canary),
+				},
+				{
+					Name:   canaryName,
+					Port:   int(canary.Spec.Service.Port),
+					Weight: canaryWeight,
+					//HealthCheck: kr.makeHealthCheck(canary),
+				},
+			}},
+	}
+
 	proxy.Spec = v1beta1.IngressRouteSpec{
-		Routes: []v1beta1.Route{
-			{
-				Match:         kr.makeExactPath(canary),
-				TimeoutPolicy: kr.makeTimeoutPolicy(canary),
-				RetryPolicy:   kr.makeRetryPolicy(canary),
-				Services: []v1beta1.Service{
-					{
-						Name:   primaryName,
-						Port:   int(canary.Spec.Service.Port),
-						Weight: primaryWeight,
-					},
-					{
-						Name:   canaryName,
-						Port:   int(canary.Spec.Service.Port),
-						Weight: canaryWeight,
-					},
-				}},
-		},
+		Routes: newRoutes,
 	}
 
 	if len(canary.GetAnalysis().Match) > 0 {
 		proxy.Spec = v1beta1.IngressRouteSpec{
 			Routes: []v1beta1.Route{
 				{
-					Match:         kr.makeExactPath(canary),
-					TimeoutPolicy: kr.makeTimeoutPolicy(canary),
-					RetryPolicy:   kr.makeRetryPolicy(canary),
+					PermitInsecure: true,
+					Match:          kr.makeExactPath(canary),
+					TimeoutPolicy:  kr.makeTimeoutPolicy(canary),
+					RetryPolicy:    kr.makeRetryPolicy(canary),
 					Services: []v1beta1.Service{
 						{
 							Name:   primaryName,
 							Port:   int(canary.Spec.Service.Port),
 							Weight: primaryWeight,
+							//HealthCheck: kr.makeHealthCheck(canary),
 						},
 						{
 							Name:   canaryName,
 							Port:   int(canary.Spec.Service.Port),
 							Weight: canaryWeight,
+							//HealthCheck: kr.makeHealthCheck(canary),
 						},
 					},
 				},
 				{
-					Match:         kr.makeExactPath(canary),
-					TimeoutPolicy: kr.makeTimeoutPolicy(canary),
-					RetryPolicy:   kr.makeRetryPolicy(canary),
+					PermitInsecure: true,
+					Match:          kr.makeExactPath(canary),
+					TimeoutPolicy:  kr.makeTimeoutPolicy(canary),
+					RetryPolicy:    kr.makeRetryPolicy(canary),
 					Services: []v1beta1.Service{
 						{
 							Name:   primaryName,
 							Port:   int(canary.Spec.Service.Port),
 							Weight: 100,
+							//HealthCheck: kr.makeHealthCheck(canary),
 						},
 						{
 							Name:   canaryName,
 							Port:   int(canary.Spec.Service.Port),
 							Weight: 0,
+							//HealthCheck: kr.makeHealthCheck(canary),
 						},
 					},
 				},
@@ -263,11 +290,36 @@ func (kr *KapcomRouter) SetRoutes(
 		}
 	}
 
-	_, err = kr.kapcomClient.KapcomV1beta1().IngressRoutes(canary.Namespace).Update(context.TODO(), proxy, metav1.UpdateOptions{})
+	payloadBytes, _ := json.Marshal(proxy)
+	_, err = kr.kapcomClient.KapcomV1beta1().IngressRoutes(canary.Namespace).Patch(context.TODO(), apexName, types.MergePatchType, payloadBytes, metav1.PatchOptions{}, "")
 	if err != nil {
 		return fmt.Errorf("Ingressroute %s.%s query error: %w", apexName, canary.Namespace, err)
 	}
 
+	svc, err := kr.kubeClient.CoreV1().Services(canary.Namespace).Get(context.TODO(), canaryName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("Service  %s.%s fetch error: %w", apexName, canary.Namespace, err)
+	}
+	selectorMap := make(map[string]string)
+	// Ensure Kapcom has upstream from both primary and canary sides to start with.
+	if canary.Status.CanaryWeight == 0 && canary.Status.Phase == flaggerv1.CanaryPhaseProgressing {
+		selectorMap = svc.Spec.Selector
+	}
+	for selector, _ := range svc.Spec.Selector {
+		if strings.LastIndex(selector, "-common") > 0 {
+			selectorMap[strings.ReplaceAll(selector, "-common", "")] =
+				strings.ReplaceAll(svc.Spec.Selector[selector], "-common", "")
+		}
+	}
+	if len(selectorMap) > 0 {
+		svc.Spec.Selector = selectorMap
+	//if updateMap{
+		_, err = kr.kubeClient.CoreV1().Services(canary.Namespace).Update(context.TODO(), svc, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("Service  %s.%s fetch error: %w", apexName, canary.Namespace, err)
+		}
+	}
+	//_, err = kr.kapcomClient.KapcomV1beta1().IngressRoutes(canary.Namespace).Update(context.TODO(), proxy, metav1.UpdateOptions{})
 	return nil
 }
 
@@ -290,7 +342,7 @@ func (kr *KapcomRouter) Finalize(_ *flaggerv1.Canary) error {
 func (kr *KapcomRouter) makeTimeoutPolicy(canary *flaggerv1.Canary) *v1beta1.TimeoutPolicy {
 	if canary.Spec.Service.Timeout != "" {
 		return &v1beta1.TimeoutPolicy{
-			Request: fmt.Sprintf("%s%s", canary.Spec.Service.Timeout, "5m"),
+			Request: fmt.Sprintf("%s", canary.Spec.Service.Timeout),
 		}
 	}
 	return nil
@@ -306,4 +358,15 @@ func (kr *KapcomRouter) makeRetryPolicy(canary *flaggerv1.Canary) *v1beta1.Retry
 	return nil
 }
 
-
+func (kr *KapcomRouter) makeHealthCheck(canary *flaggerv1.Canary) *v1beta1.HealthCheck {
+	if canary.Spec.Service.Retries != nil {
+		return &v1beta1.HealthCheck{
+			Path:                    "/ping",
+			IntervalSeconds:         60,
+			TimeoutSeconds:          5,
+			UnhealthyThresholdCount: 3,
+			HealthyThresholdCount:   1,
+		}
+	}
+	return nil
+}

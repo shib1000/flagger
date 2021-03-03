@@ -64,6 +64,7 @@ type KapcomObserver struct {
 
 func (ob *KapcomObserver) GetRequestSuccessRate(model flaggerv1.MetricTemplateModel) (float64, error) {
 	query, err := RenderQuery(contourQueries["request-success-rate"], model)
+	fmt.Println("request-success-rate", query)
 	if err != nil {
 		return 0, fmt.Errorf("rendering query failed: %w", err)
 	}
@@ -78,6 +79,7 @@ func (ob *KapcomObserver) GetRequestSuccessRate(model flaggerv1.MetricTemplateMo
 
 func (ob *KapcomObserver) GetRequestDuration(model flaggerv1.MetricTemplateModel) (time.Duration, error) {
 	query, err := RenderQuery(contourQueries["request-duration"], model)
+	fmt.Println("request-duration ", query)
 	if err != nil {
 		return 0, fmt.Errorf("rendering query failed: %w", err)
 	}

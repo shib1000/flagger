@@ -19,7 +19,6 @@ package canary
 import (
 	"context"
 	"fmt"
-
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -91,6 +90,7 @@ func (c *DeploymentController) Promote(cd *flaggerv1.Canary) error {
 
 	label, labelValue, err := c.getSelectorLabel(canary)
 	primaryLabelValue := fmt.Sprintf("%s-primary", labelValue)
+	commomLabel, commomLabelValue:=c.makeCommonLabelValue(label, labelValue)
 	if err != nil {
 		return fmt.Errorf("getSelectorLabel failed: %w", err)
 	}
@@ -126,6 +126,7 @@ func (c *DeploymentController) Promote(cd *flaggerv1.Canary) error {
 
 	primaryCopy.Spec.Template.Annotations = annotations
 	primaryCopy.Spec.Template.Labels = makePrimaryLabels(canary.Spec.Template.Labels, primaryLabelValue, label)
+	primaryCopy.Spec.Template.Labels[commomLabel] = commomLabelValue
 
 	// apply update
 	_, err = c.kubeClient.AppsV1().Deployments(cd.Namespace).Update(context.TODO(), primaryCopy, metav1.UpdateOptions{})
@@ -191,10 +192,39 @@ func (c *DeploymentController) ScaleFromZero(cd *flaggerv1.Canary) error {
 	depCopy := dep.DeepCopy()
 	depCopy.Spec.Replicas = replicas
 
-	_, err = c.kubeClient.AppsV1().Deployments(dep.Namespace).Update(context.TODO(), depCopy, metav1.UpdateOptions{})
-	if err != nil {
-		return fmt.Errorf("scaling up %s.%s to %v failed: %v", depCopy.GetName(), depCopy.Namespace, replicas, err)
+
+	label, labelValue, err := c.getSelectorLabel(dep)
+	commomLabel, commomLabelValue:=c.makeCommonLabelValue(label, labelValue)
+
+	_,ok :=dep.Spec.Selector.MatchLabels[commomLabel]
+	if ok {
+		_, err = c.kubeClient.AppsV1().Deployments(dep.Namespace).Update(context.TODO(), depCopy, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("scaling up %s.%s to %v failed: %v", depCopy.GetName(), depCopy.Namespace, replicas, err)
+		}
+	}else{
+		selectors:= depCopy.Spec.Selector.MatchLabels
+		selectors[commomLabel]= commomLabelValue
+		depCopy.Spec.Selector.MatchLabels = selectors
+
+		labels:= depCopy.Spec.Template.Labels
+		labels[commomLabel]= commomLabelValue
+		depCopy.Spec.Template.Labels=labels
+
+
+		err = c.kubeClient.AppsV1().Deployments(dep.Namespace).Delete(context.TODO(), depCopy.Name, metav1.DeleteOptions{})
+		if err != nil {
+			return fmt.Errorf("scaling up %s.%s to %v failed: %v", depCopy.GetName(), depCopy.Namespace, replicas, err)
+		}
+
+		depCopy.ResourceVersion=""
+		_, err = c.kubeClient.AppsV1().Deployments(dep.Namespace).Create(context.TODO(), depCopy, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("scaling up %s.%s to %v failed: %v", depCopy.GetName(), depCopy.Namespace, replicas, err)
+		}
+
 	}
+
 	return nil
 }
 
@@ -233,6 +263,7 @@ func (c *DeploymentController) createPrimaryDeployment(cd *flaggerv1.Canary, inc
 
 	label, labelValue, err := c.getSelectorLabel(canaryDep)
 	primaryLabelValue := fmt.Sprintf("%s-primary", labelValue)
+	commomLabel, commomLabelValue:=c.makeCommonLabelValue(label, labelValue)
 	if err != nil {
 		return fmt.Errorf("getSelectorLabel failed: %w", err)
 	}
@@ -257,6 +288,8 @@ func (c *DeploymentController) createPrimaryDeployment(cd *flaggerv1.Canary, inc
 			replicas = *canaryDep.Spec.Replicas
 		}
 
+		selector:=makePrimaryLabels(canaryDep.Spec.Template.Labels, primaryLabelValue, label)
+		selector[commomLabel]=commomLabelValue
 		// create primary deployment
 		primaryDep = &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -279,13 +312,11 @@ func (c *DeploymentController) createPrimaryDeployment(cd *flaggerv1.Canary, inc
 				Replicas:                int32p(replicas),
 				Strategy:                canaryDep.Spec.Strategy,
 				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						label: primaryLabelValue,
-					},
+					MatchLabels: selector,
 				},
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels:      makePrimaryLabels(canaryDep.Spec.Template.Labels, primaryLabelValue, label),
+						Labels: selector,
 						Annotations: annotations,
 					},
 					// update spec with the primary secrets and config maps
@@ -494,4 +525,8 @@ func contains(slice []string, val string) bool {
 		}
 	}
 	return false
+}
+
+func (c *DeploymentController) makeCommonLabelValue(primaryLabel string, primaryValue string) (label string, value string){
+	return fmt.Sprintf("%s-common", primaryLabel),fmt.Sprintf("%s-common", primaryValue)
 }
