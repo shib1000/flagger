@@ -20,12 +20,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/Masterminds/semver/v3"
+	"k8s.io/klog/v2"
 	"log"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +39,6 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/transport"
 	_ "k8s.io/code-generator/cmd/client-gen/generators"
-	"k8s.io/klog/v2"
 
 	"github.com/fluxcd/flagger/pkg/canary"
 	clientset "github.com/fluxcd/flagger/pkg/client/clientset/versioned"

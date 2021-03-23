@@ -149,6 +149,14 @@ func (factory *Factory) MeshRouter(provider string, labelSelector string) Interf
 			logger:        factory.logger,
 			traefikClient: factory.meshClient,
 		}
+	case provider == flaggerv1.KapcomProvider:
+		return &KapcomRouter{
+			logger:        factory.logger,
+			flaggerClient: factory.flaggerClient,
+			kubeClient:    factory.kubeClient,
+			kapcomClient:  factory.meshClient,
+			ingressClass:  factory.ingressClass,
+		}
 	case provider == flaggerv1.KubernetesProvider:
 		return &NopRouter{}
 	default:

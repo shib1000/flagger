@@ -26,6 +26,7 @@ import (
 	flaggerv1beta1 "github.com/fluxcd/flagger/pkg/apis/flagger/v1beta1"
 	v1 "github.com/fluxcd/flagger/pkg/apis/gloo/v1"
 	v1alpha3 "github.com/fluxcd/flagger/pkg/apis/istio/v1alpha3"
+	kapcomv1beta1 "github.com/fluxcd/flagger/pkg/apis/kapcom/v1beta1"
 	projectcontourv1 "github.com/fluxcd/flagger/pkg/apis/projectcontour/v1"
 	v1alpha1 "github.com/fluxcd/flagger/pkg/apis/smi/v1alpha1"
 	v1alpha2 "github.com/fluxcd/flagger/pkg/apis/smi/v1alpha2"
@@ -87,6 +88,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		// Group=gateway.solo.io, Version=v1
 	case v1.SchemeGroupVersion.WithResource("routetables"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Gateway().V1().RouteTables().Informer()}, nil
+
+		// Group=kapcom.io, Version=v1beta1
+	case kapcomv1beta1.SchemeGroupVersion.WithResource("ingressroutes"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kapcom().V1beta1().IngressRoutes().Informer()}, nil
 
 		// Group=networking.istio.io, Version=v1alpha3
 	case v1alpha3.SchemeGroupVersion.WithResource("destinationrules"):

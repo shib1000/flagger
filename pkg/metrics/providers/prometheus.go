@@ -86,6 +86,7 @@ func NewPrometheusProvider(provider flaggerv1.MetricTemplateProvider, credential
 // RunQuery executes the promQL query and returns the the first result as float64
 func (p *PrometheusProvider) RunQuery(query string) (float64, error) {
 	query = url.QueryEscape(p.trimQuery(query))
+
 	u, err := url.Parse(fmt.Sprintf("./api/v1/query?query=%s", query))
 	if err != nil {
 		return 0, fmt.Errorf("url.Parase failed: %w", err)

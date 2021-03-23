@@ -50,13 +50,14 @@ func (c *KubernetesDefaultRouter) Initialize(canary *flaggerv1.Canary) error {
 	_, primaryName, canaryName := canary.GetServiceNames()
 
 	// canary svc
-	err := c.reconcileService(canary, canaryName, c.labelValue, canary.Spec.Service.Canary)
+	// err := c.reconcileService(canary, canaryName, c.labelValue, canary.Spec.Service.Canary)
+	err := c.reconcileService(canary, canaryName, fmt.Sprintf("%s-common", c.labelSelector), fmt.Sprintf("%s-common", c.labelValue), canary.Spec.Service.Canary)
 	if err != nil {
 		return fmt.Errorf("reconcileService failed: %w", err)
 	}
 
 	// primary svc
-	err = c.reconcileService(canary, primaryName, fmt.Sprintf("%s-primary", c.labelValue), canary.Spec.Service.Primary)
+	err = c.reconcileService(canary, primaryName,c.labelSelector, fmt.Sprintf("%s-primary", c.labelValue), canary.Spec.Service.Primary)
 	if err != nil {
 		return fmt.Errorf("reconcileService failed: %w", err)
 	}
@@ -69,7 +70,7 @@ func (c *KubernetesDefaultRouter) Reconcile(canary *flaggerv1.Canary) error {
 	apexName, _, _ := canary.GetServiceNames()
 
 	// main svc
-	err := c.reconcileService(canary, apexName, fmt.Sprintf("%s-primary", c.labelValue), canary.Spec.Service.Apex)
+	err := c.reconcileService(canary, apexName,c.labelSelector, fmt.Sprintf("%s-primary", c.labelValue), canary.Spec.Service.Apex)
 	if err != nil {
 		return fmt.Errorf("reconcileService failed: %w", err)
 	}
@@ -85,7 +86,7 @@ func (c *KubernetesDefaultRouter) GetRoutes(_ *flaggerv1.Canary) (primaryRoute i
 	return 0, 0, nil
 }
 
-func (c *KubernetesDefaultRouter) reconcileService(canary *flaggerv1.Canary, name string, podSelector string, metadata *flaggerv1.CustomMetadata) error {
+func (c *KubernetesDefaultRouter) reconcileService(canary *flaggerv1.Canary, name string,label string, podSelector string, metadata *flaggerv1.CustomMetadata) error {
 	portName := canary.Spec.Service.PortName
 	if portName == "" {
 		portName = "http"
@@ -103,7 +104,8 @@ func (c *KubernetesDefaultRouter) reconcileService(canary *flaggerv1.Canary, nam
 	// set pod selector and apex port
 	svcSpec := corev1.ServiceSpec{
 		Type:     corev1.ServiceTypeClusterIP,
-		Selector: map[string]string{c.labelSelector: podSelector},
+		//Selector: map[string]string{c.labelSelector: podSelector},
+		Selector: map[string]string{label: podSelector},
 		Ports: []corev1.ServicePort{
 			{
 				Name:       portName,
@@ -136,7 +138,7 @@ func (c *KubernetesDefaultRouter) reconcileService(canary *flaggerv1.Canary, nam
 	if metadata.Labels == nil {
 		metadata.Labels = make(map[string]string)
 	}
-	metadata.Labels[c.labelSelector] = name
+	metadata.Labels[label] = name
 
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
@@ -215,8 +217,10 @@ func (c *KubernetesDefaultRouter) reconcileService(canary *flaggerv1.Canary, nam
 				updateService = true
 			}
 		}
-
-		if updateService {
+		// The service is expected to differ in selectors during the progressing and finalizing phases.
+		skipUpdate:=
+			(canary.Status.Phase == flaggerv1.CanaryPhaseProgressing && canary.Status.CanaryWeight > 50 ) || (canary.Status.Phase == flaggerv1.CanaryPhasePromoting)
+		if updateService && !skipUpdate{
 			_, err = c.kubeClient.CoreV1().Services(canary.Namespace).Update(context.TODO(), svcClone, metav1.UpdateOptions{})
 			if err != nil {
 				return fmt.Errorf("service %s update error: %w", name, err)
@@ -254,7 +258,7 @@ func (c *KubernetesDefaultRouter) Finalize(canary *flaggerv1.Canary) error {
 				return fmt.Errorf("service %s update error: %w", clone.Name, err)
 			}
 		} else {
-			err = c.reconcileService(canary, apexName, canary.Spec.TargetRef.Name, nil)
+			err = c.reconcileService(canary, apexName, canary.Spec.TargetRef.Name,c.labelSelector, nil)
 			if err != nil {
 				return fmt.Errorf("reconcileService failed: %w", err)
 			}

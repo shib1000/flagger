@@ -30,6 +30,8 @@ import (
 	fakegatewayv1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/gloo/v1/fake"
 	networkingv1alpha3 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/istio/v1alpha3"
 	fakenetworkingv1alpha3 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/istio/v1alpha3/fake"
+	kapcomv1beta1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/kapcom/v1beta1"
+	fakekapcomv1beta1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/kapcom/v1beta1/fake"
 	projectcontourv1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/projectcontour/v1"
 	fakeprojectcontourv1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/projectcontour/v1/fake"
 	splitv1alpha1 "github.com/fluxcd/flagger/pkg/client/clientset/versioned/typed/smi/v1alpha1"
@@ -115,6 +117,11 @@ func (c *Clientset) GatewayV1() gatewayv1.GatewayV1Interface {
 // NetworkingV1alpha3 retrieves the NetworkingV1alpha3Client
 func (c *Clientset) NetworkingV1alpha3() networkingv1alpha3.NetworkingV1alpha3Interface {
 	return &fakenetworkingv1alpha3.FakeNetworkingV1alpha3{Fake: &c.Fake}
+}
+
+// KapcomV1beta1 retrieves the KapcomV1beta1Client
+func (c *Clientset) KapcomV1beta1() kapcomv1beta1.KapcomV1beta1Interface {
+	return &fakekapcomv1beta1.FakeKapcomV1beta1{Fake: &c.Fake}
 }
 
 // ProjectcontourV1 retrieves the ProjectcontourV1Client
